@@ -1,0 +1,18 @@
+Database design : 
+We need a table that stores:
+unique id
+short code
+original long URL
+click count
+created time
+Table : id	short_code	long_url	clicks	created_at
+
+SQL Query to create table : 
+CREATE TABLE IF NOT EXISTS urls (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    short_code TEXT UNIQUE NOT NULL,
+    long_url TEXT NOT NULL,
+    clicks INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
