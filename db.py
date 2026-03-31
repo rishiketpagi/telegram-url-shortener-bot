@@ -18,6 +18,7 @@ def init_db():
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS urls (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
             short_code TEXT UNIQUE NOT NULL,
             long_url TEXT NOT NULL,
             clicks INTEGER DEFAULT 0,
@@ -34,13 +35,12 @@ def generate_short_code(length=6):
     return ''.join(random.choices(characters, k=length))
 
 
-def create_short_url(long_url):
+def create_short_url(user_id, long_url):
     conn = get_connection()
     cursor = conn.cursor()
 
     short_code = generate_short_code()
 
-    # Make sure short_code is unique
     while cursor.execute(
         "SELECT id FROM urls WHERE short_code = ?",
         (short_code,)
@@ -48,8 +48,8 @@ def create_short_url(long_url):
         short_code = generate_short_code()
 
     cursor.execute(
-        "INSERT INTO urls (short_code, long_url) VALUES (?, ?)",
-        (short_code, long_url)
+        "INSERT INTO urls (user_id, short_code, long_url) VALUES (?, ?, ?)",
+        (user_id, short_code, long_url)
     )
 
     conn.commit()
@@ -92,23 +92,22 @@ def get_url_stats(short_code):
     cursor = conn.cursor()
 
     row = cursor.execute(
-        "SELECT short_code, long_url, clicks, created_at FROM urls WHERE short_code = ?",
+        "SELECT user_id, short_code, long_url, clicks, created_at FROM urls WHERE short_code = ?",
         (short_code,)
     ).fetchone()
 
     conn.close()
-
     return row
 
 
-def get_all_urls():
+def get_user_urls(user_id):
     conn = get_connection()
     cursor = conn.cursor()
 
     rows = cursor.execute(
-        "SELECT short_code, long_url, clicks, created_at FROM urls ORDER BY id DESC"
+        "SELECT short_code, long_url, clicks, created_at FROM urls WHERE user_id = ? ORDER BY id DESC",
+        (user_id,)
     ).fetchall()
 
     conn.close()
-
     return rows

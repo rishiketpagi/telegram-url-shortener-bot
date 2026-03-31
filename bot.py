@@ -12,12 +12,14 @@ BACKEND_URL = os.getenv("BACKEND_URL", "http://127.0.0.1:5000")
 if not TOKEN:
     raise ValueError("BOT_TOKEN is not set")
 
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "👋 Hello! I am your URL Shortener Bot\n\n"
         "Commands:\n"
         "/short <long_url> - shorten a URL\n"
         "/stats <short_code> - view click stats\n"
+        "/myurls - view your shortened URLs\n"
         "/help - show help"
     )
 
@@ -26,7 +28,8 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "📌 Commands:\n"
         "/short https://example.com/some/very/long/url\n"
-        "/stats abc123"
+        "/stats abc123\n"
+        "/myurls"
     )
 
 
@@ -36,12 +39,13 @@ async def short(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     long_url = context.args[0]
+    user_id = update.effective_user.id
 
     try:
         response = requests.post(
             f"{BACKEND_URL}/shorten",
-            json={"long_url": long_url},
-            timeout=10
+            json={"long_url": long_url, "user_id": user_id},
+            timeout=15
         )
 
         data = response.json()
@@ -69,7 +73,7 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     short_code = context.args[0]
 
     try:
-        response = requests.get(f"{BACKEND_URL}/stats/{short_code}", timeout=10)
+        response = requests.get(f"{BACKEND_URL}/stats/{short_code}", timeout=15)
         data = response.json()
 
         if response.status_code != 200:
@@ -88,6 +92,36 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"❌ Backend error: {str(e)}")
 
 
+async def myurls(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+
+    try:
+        response = requests.get(f"{BACKEND_URL}/myurls/{user_id}", timeout=15)
+        data = response.json()
+
+        if response.status_code != 200:
+            await update.message.reply_text("❌ Could not fetch your URLs.")
+            return
+
+        if not data:
+            await update.message.reply_text("📭 You have not shortened any URLs yet.")
+            return
+
+        message = "🔗 Your Shortened URLs:\n\n"
+
+        for item in data[:10]:
+            message += (
+                f"🆔 {item['short_code']}\n"
+                f"✂️ {item['short_url']}\n"
+                f"👆 Clicks: {item['clicks']}\n\n"
+            )
+
+        await update.message.reply_text(message)
+
+    except Exception as e:
+        await update.message.reply_text(f"❌ Backend error: {str(e)}")
+
+
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
 
@@ -95,6 +129,7 @@ def main():
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CommandHandler("short", short))
     app.add_handler(CommandHandler("stats", stats))
+    app.add_handler(CommandHandler("myurls", myurls))
 
     print("🤖 Telegram bot is running...")
     app.run_polling()
